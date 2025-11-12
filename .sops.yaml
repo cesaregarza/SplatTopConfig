@@ -1,0 +1,6 @@
+# SOPS configuration for this repo.
+# Public key lives in keys/age-public.txt; private key is stored in GitHub Actions secret / cluster secret.
+creation_rules:
+  - path_regex: ^k8s/.*\.enc\.yaml$
+    encrypted_regex: '^(data|stringData)$'
+    age: age16yxsawhpecdrhas2q3z246q3tjq8889m552lqhjcgf8jnt7naszqqgz8vt

@@ -1,0 +1,91 @@
+name: Config Repo CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  helm-and-kubeconform:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Install kubeconform
+        run: |
+          curl -L -o kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar -xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/kubeconform
+          kubeconform -v
+
+      - name: Helm lint
+        run: helm lint helm/splattop
+
+      - name: Render manifests (default + prod)
+        run: |
+          mkdir -p rendered
+          helm template splattop helm/splattop > rendered/default.yaml
+          helm template splattop helm/splattop -f helm/splattop/values-prod.yaml > rendered/prod.yaml
+
+      - name: Run kubeconform
+        run: |
+          set -euo pipefail
+          for file in rendered/*.yaml; do
+            echo "Validating ${file}"
+            kubeconform -strict -summary -exit-on-error "$file"
+          done
+
+      - name: Upload rendered manifests (for debugging)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-manifests
+          path: rendered
+
+  prometheus-rules:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env:
+          - name: prod
+            values: helm/splattop/values-prod.yaml
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run promtool validation
+        run: python scripts/validate_prometheus_config.py --values ${{ matrix.env.values }} --label ${{ matrix.env.name }}
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@v3
+        with:
+          scanArguments: --no-update --only-verified --fail --git-history=false .
+*** End Patch

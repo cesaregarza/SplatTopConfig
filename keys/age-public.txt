@@ -1,0 +1,2 @@
+# Generated 2025-02-14; store matching private key in GitHub Actions secret `SOPS_AGE_KEY`
+age16yxsawhpecdrhas2q3z246q3tjq8889m552lqhjcgf8jnt7naszqqgz8vt

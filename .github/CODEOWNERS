@@ -1,0 +1,10 @@
+# Default owners for the config repo. Replace/extend with real team handles as new
+# GitHub teams/aliases are created. Platform DRIs should review all paths here.
+* @cesaregarza
+
+# Explicit ownership for sensitive directories (staging/prod values, workflows, docs).
+helm/ @cesaregarza
+argocd/ @cesaregarza
+k8s/ @cesaregarza
+docs/ @cesaregarza
+.github/ @cesaregarza

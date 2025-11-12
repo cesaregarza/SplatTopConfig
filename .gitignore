@@ -1,0 +1,16 @@
+.DS_Store
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+*.retry
+*.log
+.env
+.venv/
+env/
+.pytest_cache/
+dist/
+build/
+node_modules/
+keys/age-private.txt
+keys/*.agekey
