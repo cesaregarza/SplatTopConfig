@@ -5,13 +5,13 @@
 # Global configuration
 global:
   environment: production
-  appImageTag: v1.0.0
+  appImageTag: latest
 
 # FastAPI backend configuration
 fastapi:
   replicas: 2
   image:
-    tag: v1.0.0
+    tag: latest
   env:
     COMP_LEADERBOARD_ENABLED: "true"
   service:
@@ -33,7 +33,7 @@ fastapi:
 react:
   replicas: 2
   image:
-    tag: v1.0.0
+    tag: latest
   service:
     extraServices:
       - name: react-app-service
@@ -49,14 +49,14 @@ react:
 # Celery worker configuration
 celeryWorker:
   image:
-    tag: v1.0.0
+    tag: latest
   env:
     COMP_LEADERBOARD_ENABLED: "true"
 
 # Celery beat configuration
 celeryBeat:
   image:
-    tag: v1.0.0
+    tag: latest
   env:
     COMP_LEADERBOARD_ENABLED: "true"
 
@@ -77,7 +77,7 @@ redis:
 # SplatNLP compatibility service overrides
 splatnlp:
   image:
-    tag: v1.0.0
+    tag: latest
   service:
     extraServices:
       - name: splatnlp-service
