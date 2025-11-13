@@ -1,0 +1,12 @@
+{
+  "generatedAt": "2025-11-13T11:45:08Z",
+  "gitSha": "554a12ca8f80eeaca41e0936d385f9a57d3ba962",
+  "releaseVersion": "2.0.1",
+  "components": {
+    "react": {
+      "image": "registry.digitalocean.com/sendouq/react",
+      "tag": "v2.0.1",
+      "digest": "sha256:ee2fabca19cdeecc4ab7ff98ab88e859d084559514bc99ab87106eed5368336b"
+    }
+  }
+}
