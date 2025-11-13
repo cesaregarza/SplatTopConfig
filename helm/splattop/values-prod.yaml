@@ -5,13 +5,13 @@
 # Global configuration
 global:
   environment: production
-  appImageTag: latest
+  appImageTag: v2.0.2
 
 # FastAPI backend configuration
 fastapi:
   replicas: 2
   image:
-    tag: latest
+    tag: v2.0.2
   env:
     COMP_LEADERBOARD_ENABLED: "true"
   service:
@@ -33,7 +33,7 @@ fastapi:
 react:
   replicas: 2
   image:
-    tag: latest
+    tag: v2.0.2
   service:
     extraServices:
       - name: react-app-service
@@ -49,14 +49,14 @@ react:
 # Celery worker configuration
 celeryWorker:
   image:
-    tag: latest
+    tag: v2.0.2
   env:
     COMP_LEADERBOARD_ENABLED: "true"
 
 # Celery beat configuration
 celeryBeat:
   image:
-    tag: latest
+    tag: v2.0.2
   env:
     COMP_LEADERBOARD_ENABLED: "true"
 
