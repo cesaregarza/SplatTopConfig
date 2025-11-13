@@ -427,8 +427,8 @@ For production environments, we recommend using ArgoCD for GitOps-based deployme
 
 - **Declarative GitOps**: Git as the single source of truth
 - **Automated Sync**: Automatic deployment of changes from Git
-- **Self-Healing**: Automatically corrects drift from desired state
-- **Multi-Environment**: Manage dev, staging, and production from one place
+- **Self-Healing**: Automatically detects and surfaces drift from desired state
+- **Production Guardrails**: Manual syncs, RBAC, and sync windows for live traffic
 - **Rollback**: Easy rollback to previous versions
 - **RBAC**: Fine-grained access control per environment
 
@@ -445,13 +445,9 @@ For production environments, we recommend using ArgoCD for GitOps-based deployme
    kubectl apply -f argocd/projects/splattop-project.yaml
    ```
 
-3. **Deploy Application** (choose one):
+3. **Deploy Application**:
    ```bash
-   # Single environment
    kubectl apply -f argocd/applications/splattop-prod.yaml
-
-   # Or use ApplicationSet for all environments
-   kubectl apply -f argocd/applications/splattop-applicationset.yaml
    ```
 
 4. **Access ArgoCD UI**:

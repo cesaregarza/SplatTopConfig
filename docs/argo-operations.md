@@ -4,34 +4,31 @@ This guide covers day-to-day management of Argo CD once it tracks the config rep
 
 ## AppProjects & RBAC
 
-- One AppProject per environment (`dev`, `staging`, `prod`, `monitoring`).
-- Each project must specify:
-  - `sourceRepos`: whitelist `git@github.com:SplatTop/SplatTopConfig.git`.
-  - `destinations`: namespace + cluster combinations the project may touch.
-  - `clusterResourceWhitelist` / `namespaceResourceBlacklist` as needed.
-- Store manifests under `argocd/projects/` and apply via GitOps (no manual Argo edits).
-- Review AppProjects quarterly to make sure new namespaces/services are captured.
+- Production is the only environment managed from this repo today. The manifest lives at `argocd/projects/splattop-project.yaml`.
+- The project pins `sourceRepos` to `https://github.com/cesaregarza/SplatTopConfig` and limits destinations to the `default` (app) and `monitoring` namespaces on the in-cluster API server.
+- Resource whitelists mirror the previous settings so Helm can continue to manage monitoring/cluster objects required by prod.
+- A weekday sync window (Mon–Fri, cron `0 15 * * 1-5`, `duration: 11h`) blocks off-hours deploys.
+- Only the `splattop-admins` group is bound (role `proj:splattop:admin`). Set `policy.default: role:readonly` in `argocd-rbac-cm` so casual logins stay read-only.
+- Apply project changes via GitOps (`kubectl apply -f argocd/projects`) rather than editing the object in the UI.
 
 ## Sync Policies
 
 | Environment | Sync Policy | Notes |
 | ----------- | ----------- | ----- |
-| dev         | auto-sync + self-heal + prune | fast feedback; tolerate drift fixes automatically. |
-| staging     | auto-sync with `syncOptions: ['Validate=true']`; require manual approval for _prod_ directories touched in same PR. |
-| prod        | manual sync or auto-sync with `syncWaves` + required checks (pager-duty ack). |
+| prod        | manual sync only | `ApplyOutOfSyncOnly=true`, `RespectIgnoreDifferences=true`, namespace autocreation for monitoring objects, and the weekday sync window above. |
 
-Document the final policy choice in `argocd/applications/*.yaml`.
+All of the details are codified inside `argocd/applications/splattop-prod.yaml`; update that manifest rather than flipping settings in the UI.
 
 ## Repository & Registry Credentials
 
 1. **Config repo**
-   - Deploy key with read-only permissions.
-   - Added via `argocd repo add`.
+   - Create a read-only deploy key dedicated to Argo (`argocd-repo-splattopconfig` secret in the `argocd` namespace).
+   - Reference it from `argocd-cm.repositories` so no developer PATs are needed inside the control plane.
 2. **Container registry**
-   - Store DOCR credentials as Kubernetes secrets in each namespace.
-   - Reference via `imagePullSecrets` in Helm values.
+   - Mirror the existing DOCR `regcred` into the `argocd` namespace for metadata lookups, and keep per-namespace pull secrets for workloads.
+   - Document the `kubectl create secret docker-registry ...` command used plus the rotation owner/date.
 3. **Helm repos / OCI charts (if used)**
-   - Document auth + mirror strategy.
+   - Capture auth + mirror strategy in this repo before onboarding any external chart.
 
 Keep renewal dates in `developer-cheat-sheet.md` or a shared calendar.
 

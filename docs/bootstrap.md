@@ -33,8 +33,8 @@ Use this runbook when standing up a brand-new cluster or when rehydrating Argo t
 7. **Apply AppProjects**
    - `kubectl apply -f argocd/projects/`.
    - Confirm restrictions (allowed destinations, namespaces, resource allow lists) align with the plan.
-8. **Apply Applications/ApplicationSets**
-   - `kubectl apply -f argocd/applications/`.
+8. **Apply the production Application**
+   - `kubectl apply -f argocd/applications/splattop-prod.yaml`.
    - Ensure `repoURL` references this repo and `targetRevision: main`.
 9. **Seed secrets**
    - Populate `k8s/secrets.template.yaml` with environment-specific data, copy to `k8s/secrets.enc.yaml`, and run `SOPS_AGE_RECIPIENTS=$(tail -n1 keys/age-public.txt) sops --encrypt --in-place k8s/secrets.enc.yaml`.
@@ -42,8 +42,8 @@ Use this runbook when standing up a brand-new cluster or when rehydrating Argo t
 
 ## Validation Checklist
 
-- [ ] `argocd app list` shows dev/staging/prod apps in `Synced` state using this repo.
-- [ ] `argocd app get splattop-dev` displays the expected digest pinned images.
+- [ ] `argocd app list` shows the `splattop-prod` app in `Synced` state using this repo.
+- [ ] `argocd app get splattop-prod` displays the expected digest pinned images.
 - [ ] `helm lint helm/splattop` passes locally.
 - [ ] `kubeconform` (or `kubectl apply --dry-run=server`) succeeds for each env overlay.
 - [ ] `sops -d` round-trip verified (developers can decrypt; CI cannot log plaintext).

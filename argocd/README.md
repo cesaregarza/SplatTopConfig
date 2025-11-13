@@ -4,12 +4,10 @@ This directory contains ArgoCD manifests for deploying SplatTop using GitOps con
 
 ## Overview
 
-SplatTop uses ArgoCD for automated, declarative deployment management across multiple environments. This configuration supports:
+SplatTop uses ArgoCD for declarative deployment management. This config repo currently drives the production environment only and provides:
 
-- **Multi-environment deployment** (dev, staging, prod)
-- **Automated sync** with self-healing for non-production
-- **Manual sync** for production deployments (safety gate)
-- **RBAC** for developer and admin roles
+- **Manual-sync production deployments** (safety gate)
+- **RBAC** scoped to administrators (`splattop-admins`)
 - **Helm-based** deployment using the charts in `/helm/splattop`
 
 ## Directory Structure
@@ -17,9 +15,7 @@ SplatTop uses ArgoCD for automated, declarative deployment management across mul
 ```
 argocd/
 ├── applications/
-│   ├── splattop-dev.yaml           # Development application
-│   ├── splattop-prod.yaml          # Production application
-│   └── splattop-applicationset.yaml # Multi-environment ApplicationSet
+│   └── splattop-prod.yaml          # Production application
 ├── projects/
 │   └── splattop-project.yaml       # ArgoCD project definition
 └── README.md                        # This file
@@ -48,44 +44,18 @@ argocd/
    - `regcred` - Container registry credentials
    - `grafana-admin-credentials` - Grafana admin credentials (if monitoring enabled)
    - `alertmanager-config` - AlertManager configuration (if monitoring enabled)
-   - Ensure these exist in **every** namespace the application targets (`default`, `splattop-dev`, `splattop-staging`, `monitoring`). Helm expects them to be present already, so ArgoCD will fail to sync until they are created (use the `make create-secrets-*` helpers or manual `kubectl apply`).
+   - Ensure these exist in **every** namespace the application targets today (`default`, `monitoring`). Helm expects them to be present already, so ArgoCD will fail to sync until they are created (use the `make create-secrets-*` helpers or manual `kubectl apply`).
 
 ## Deployment Options
 
-You can deploy SplatTop using ArgoCD in three ways:
+Apply the project and production application manifests:
 
-### Option 1: Individual Applications (Recommended for Getting Started)
-
-Deploy specific environments individually:
-
-**Development:**
-```bash
-kubectl apply -f argocd/projects/splattop-project.yaml
-kubectl apply -f argocd/applications/splattop-dev.yaml
-```
-
-**Production:**
 ```bash
 kubectl apply -f argocd/projects/splattop-project.yaml
 kubectl apply -f argocd/applications/splattop-prod.yaml
 ```
 
-### Option 2: ApplicationSet (Dev/Staging)
-
-Deploy the non-production environments together:
-
-```bash
-kubectl apply -f argocd/projects/splattop-project.yaml
-kubectl apply -f argocd/applications/splattop-applicationset.yaml
-```
-
-This creates Applications for:
-- `splattop-dev` (auto-sync enabled)
-- `splattop-staging` (auto-sync enabled)
-
-> **Production is managed separately** through `argocd/applications/splattop-prod.yaml` (auto-sync enabled) so you can roll prod independently of the dev/staging ApplicationSet.
-
-### Option 3: ArgoCD UI
+### ArgoCD UI (optional)
 
 1. Access ArgoCD UI:
    ```bash
@@ -102,50 +72,32 @@ This creates Applications for:
    kubectl apply -f argocd/projects/splattop-project.yaml
    ```
 
-4. Create new application via UI:
+4. Create the production application via UI:
    - Project: `splattop`
-   - Repository: `https://github.com/cesaregarza/SplatTop`
+   - Repository: `https://github.com/cesaregarza/SplatTopConfig`
    - Path: `helm/splattop`
    - Cluster: `in-cluster`
-   - Namespace: `splattop-<env>` (use `default` for production in the current cluster)
-   - Helm values: Select `values-prod.yaml` for production
+   - Namespace: `default`
+   - Helm values: `values-prod.yaml`
 
 ## Configuration Details
 
 ### Application Sync Policies
 
-#### Development (`splattop-dev.yaml`)
-- **Auto-sync**: Enabled
-- **Self-heal**: Enabled
-- **Prune**: Enabled
-- **Namespace**: `splattop-dev`
-- **Values**: `values.yaml` (default development config)
-
 #### Production (`splattop-prod.yaml`)
-- **Auto-sync**: Enabled (prune + self-heal)
-- **Self-heal**: Enabled
-- **Prune**: Enabled
-- **Namespace**: `default` (existing production workloads live in `default`; adjust if/when a dedicated namespace is created)
+- **Sync**: Manual (`spec.syncPolicy.automated: null`)
+- **Prune options**: `PrunePropagationPolicy=foreground`, `PruneLast=true`
+- **Diff options**: `RespectIgnoreDifferences=true`, `ApplyOutOfSyncOnly=true`, `SkipDryRunOnMissingResource=true`
+- **Namespace**: `default` (monitoring resources also apply to `monitoring`)
 - **Values**: `values-prod.yaml` (production overrides)
-
-#### ApplicationSet
-- Manages the dev and staging environments only (both auto-sync with prune + self-heal)
-- Apply `argocd/applications/splattop-prod.yaml` separately for production control (also auto-sync)
 
 ### Project RBAC
 
-The `splattop` project defines two roles:
-
-**Developer Role:**
-- View all applications
-- Sync dev and staging environments
-- Cannot sync production
-- Groups: `splattop-developers`
+The `splattop` project currently exposes a single role:
 
 **Admin Role:**
-- Full control over all applications
-- Can sync production
-- Groups: `splattop-admins`
+- Full control over the production application (all verbs)
+- Group: `splattop-admins`
 
 To assign users to groups, configure ArgoCD RBAC:
 ```yaml
@@ -156,7 +108,6 @@ metadata:
   namespace: argocd
 data:
   policy.csv: |
-    g, alice@example.com, splattop-developers
     g, bob@example.com, splattop-admins
 ```
 
@@ -166,19 +117,16 @@ data:
 
 **Via CLI:**
 ```bash
-# Sync development
-argocd app sync splattop-dev
+# Preview changes
+argocd app diff splattop-prod
 
-# Sync production
+# Sync production (manual gate, respect sync window)
 argocd app sync splattop-prod
-
-# Sync with pruning
-argocd app sync splattop-prod --prune
 ```
 
 **Via kubectl:**
 ```bash
-kubectl patch app splattop-dev -n argocd --type merge -p '{"operation":{"initiatedBy":{"username":"admin"},"sync":{"revision":"HEAD"}}}'
+kubectl patch app splattop-prod -n argocd --type merge -p '{"operation":{"initiatedBy":{"username":"admin"},"sync":{"revision":"HEAD"}}}'
 ```
 
 ### View Application Status
@@ -207,11 +155,8 @@ argocd app rollback splattop-prod <revision-id>
 ### Delete Application
 
 ```bash
-# Delete via ArgoCD (also deletes resources)
-argocd app delete splattop-dev
-
-# Delete via kubectl
-kubectl delete app splattop-dev -n argocd
+argocd app delete splattop-prod
+kubectl delete app splattop-prod -n argocd
 ```
 
 ## Health Checks
@@ -272,22 +217,11 @@ argocd app sync splattop-prod --replace
 
 ## Environment-Specific Configurations
 
-### Development
-- Single replica for most services
-- Monitoring stack disabled
-- No ingress/TLS by default
-- Auto-sync enabled
-
-### Staging
-- Same as development
-- Can be used for integration testing
-- Auto-sync enabled
-
 ### Production
 - Multiple replicas (2x for FastAPI/React)
 - Monitoring stack enabled (Prometheus, Grafana, AlertManager)
 - Ingress enabled with TLS
-- Manual sync recommended for safety
+- Manual sync enforced for safety
 
 ## Continuous Delivery Workflow
 
@@ -295,28 +229,25 @@ argocd app sync splattop-prod --replace
 2. **CI/CD** builds and pushes new container images with tags
 3. **Update** image tags in `values-prod.yaml` or via Helm parameters
 4. **ArgoCD** detects changes in the Git repository
-5. **Dev/Staging** environments auto-sync immediately
-6. **Production** requires manual approval and sync
+5. **ArgoCD** reports prod `OutOfSync` and waits for an operator to approve
+6. **Production** sync is triggered manually inside the allowed window
 7. **ArgoCD** monitors health and performs rollbacks if needed
 
 ## Best Practices
 
-1. **Use Git branches** for environment promotion:
-   - `main` → production
-   - `develop` → staging
-   - Feature branches → dev
+1. **Use Git branches** for prod releases:
+   - Feature branches → PRs
+   - `main` → production (only merged, reviewed changes land here)
 
 2. **Pin image tags** in production (avoid `latest`)
 
-3. **Test in staging** before promoting to production
+3. **Test changes** locally or in ephemeral environments before merging to `main`
 
-4. **Monitor prod auto-syncs** via the Argo UI and pause automation only if you need a temporary freeze
+4. **Monitor prod diffs** via the Argo UI/CLI before triggering manual syncs
 
 5. **Monitor ArgoCD notifications** (configure Slack/email)
 
-6. **Regular cleanup** of old ApplicationSet-generated apps
-
-7. **Use sync waves** for ordered deployments (add to annotations):
+6. **Use sync waves** for ordered deployments (add to annotations):
    ```yaml
    metadata:
      annotations:
@@ -340,9 +271,10 @@ The repository already contains two GitHub workflows that pair with ArgoCD:
 
 The day-to-day flow is therefore:
 1. Merge to `main` → CI publishes images and validates the chart (no live apply).
-2. ArgoCD notices the Git change and auto-syncs dev/staging plus prod (prune + self-heal).
-3. Keep an eye on the Argo UI to confirm the sync succeeded; if it fails, address the diff or re-run the sync.
-4. If ArgoCD is unavailable, run the manual workflow to perform a one-off Helm deployment.
+2. ArgoCD notices the Git change, refreshes the prod application, and reports it `OutOfSync`.
+3. An operator reviews the diff, waits for the allowed window if necessary, and runs `argocd app sync splattop-prod`.
+4. Keep an eye on the Argo UI to confirm the sync succeeded; if it fails, address the diff or re-run the sync.
+5. If ArgoCD is unavailable, run the manual workflow to perform a one-off Helm deployment.
 
 ## Additional Resources
 

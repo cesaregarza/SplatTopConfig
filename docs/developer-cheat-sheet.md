@@ -42,6 +42,13 @@ trufflehog filesystem --no-update --only-verified --fail .
 | Check Argo status | `argocd app list`, `argocd app get splattop-prod`. |
 | Rollback | See `docs/release-workflow.md#Rollbacks`. |
 
+## Argo Access Controls
+
+- Only the prod AppProject (`argocd/projects/splattop-project.yaml`) is managed here today; it targets the `default` + `monitoring` namespaces.
+- `splattop-admins` is the sole write-capable group (role `proj:splattop:admin`). Everyone else falls back to `policy.default: role:readonly`.
+- Prod syncs are manual and constrained to the Mon–Fri 15:00–02:00 UTC window. Outside that window the UI/CLI will reject sync attempts automatically.
+- Argo reads this repo via the `argocd-repo-splattopconfig` deploy key secret. Update/rotate it via `kubectl -n argocd create secret generic ... --dry-run=client -o yaml | kubectl apply -f -` and record the change in `docs/argo-operations.md`.
+
 ## Troubleshooting
 
 - **App repo CI didn’t emit `component-tags.json`:** rerun workflow with `components` input or rebuild locally (`make docker-build COMPONENT=api`), then craft the JSON manually.

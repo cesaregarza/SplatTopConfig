@@ -6,24 +6,17 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  description: SplatTop - Splatoon 3 competitive tracking platform
+  description: SplatTop production project (default + monitoring namespaces)
 
-  # Source repositories
   sourceRepos:
     - https://github.com/cesaregarza/SplatTopConfig
 
-  # Destination clusters and namespaces
   destinations:
-    - namespace: splattop-dev
-      server: https://kubernetes.default.svc
-    - namespace: splattop-staging
-      server: https://kubernetes.default.svc
     - namespace: default
       server: https://kubernetes.default.svc
     - namespace: monitoring
       server: https://kubernetes.default.svc
 
-  # Cluster resource allow list
   clusterResourceWhitelist:
     - group: ''
       kind: Namespace
@@ -36,7 +29,6 @@ spec:
     - group: cert-manager.io
       kind: ClusterIssuer
 
-  # Namespace resource allow list
   namespaceResourceWhitelist:
     - group: ''
       kind: Service
@@ -67,7 +59,6 @@ spec:
     - group: cert-manager.io
       kind: Certificate
 
-  # Orphaned resources monitoring
   orphanedResources:
     warn: true
     ignore:
@@ -93,23 +84,20 @@ spec:
         kind: ConfigMap
         name: kube-root-ca.crt
 
-  # Role definitions
-  roles:
-    # Developers can sync dev and staging
-    - name: developer
-      description: Developer role for SplatTop
-      policies:
-        - p, proj:splattop:developer, applications, get, splattop/*, allow
-        - p, proj:splattop:developer, applications, sync, splattop/splattop-dev, allow
-        - p, proj:splattop:developer, applications, sync, splattop/splattop-staging, allow
-        - p, proj:splattop:developer, applications, override, splattop/splattop-dev, allow
-        - p, proj:splattop:developer, applications, override, splattop/splattop-staging, allow
-      groups:
-        - splattop-developers
+  syncWindows:
+    - kind: allow
+      schedule: '0 15 * * 1-5'
+      duration: 11h
+      applications:
+        - '*'
+      clusters:
+        - '*'
+      namespaces:
+        - '*'
 
-    # Admins have full control
+  roles:
     - name: admin
-      description: Admin role for SplatTop
+      description: Admin access scoped to SplatTop production
       policies:
         - p, proj:splattop:admin, applications, *, splattop/*, allow
       groups:
