@@ -227,7 +227,7 @@ class ArgoCoreTests(unittest.TestCase):
         self.assertEqual(runner.kwargs[0]["env"]["KUBECONFIG"], "/tmp/scoped")
         self.assertIsNone(snapshot.refresh_annotation)
 
-    def test_single_source_sync_is_exact_full_hook_with_run_token(self) -> None:
+    def test_single_source_sync_is_exact_full_hook_prune_with_run_token(self) -> None:
         runner = FakeRunner([completed([])])
         revision = "a" * 40
         ARGO.submit_sync(
@@ -241,6 +241,7 @@ class ArgoCoreTests(unittest.TestCase):
         command = runner.commands[0]
         self.assertIn("--strategy", command)
         self.assertIn("hook", command)
+        self.assertIn("--prune", command)
         self.assertIn("ces-395-run-id=ces395-run-token", command)
         self.assertEqual(command[-2:], ["--revision", revision])
         self.assertNotIn("--resource", command)

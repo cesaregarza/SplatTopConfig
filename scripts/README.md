@@ -54,8 +54,9 @@ Utilities that were previously bundled with the app repo move here when they are
   an exact automated operation is adopted or an exact-revision manual sync is
   submitted; it must settle before the next Application is refreshed. Any
   preflight Application or semantic-bundle drift forces a correlated full Hook
-  replay across all seven Applications in this order. An early exact automated
-  sync is settled but never allowed to skip its later canonical manual replay.
+  replay with pruning enabled across all seven Applications in this order. An
+  early exact automated sync is settled but never allowed to skip its later
+  canonical manual replay.
   Remote `main` is guarded again before every stage, and the skill tag must
   still resolve to the preflight digest immediately before the skills stage.
   Late drift first exposed by a hard refresh cannot trigger a lone downstream
