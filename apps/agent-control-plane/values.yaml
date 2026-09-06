@@ -131,13 +131,12 @@ callbackAdapter:
   resources:
     limits:
       memory: 512Mi
-  enabled: false
+  enabled: true
   replicaCount: 1
   sink: http
   secretKeys:
     - AGENT_PLATFORM_OPENCLAW_CALLBACK_URL
     - AGENT_PLATFORM_OPENCLAW_CALLBACK_TOKEN
-    - AGENT_PLATFORM_DISCORD_BOT_TOKEN
   pollSeconds: 2
   batchSize: 10
   leaseSeconds: 60
