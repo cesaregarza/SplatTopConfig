@@ -523,6 +523,7 @@ def submit_sync(
         "--async",
         "--strategy",
         "hook",
+        "--prune",
         "--info",
         f"ces-395-run-id={run_id}",
     ]

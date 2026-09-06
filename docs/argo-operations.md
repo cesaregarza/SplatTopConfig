@@ -62,7 +62,9 @@ The command has four hard boundaries:
    originally resolved digest immediately before the skills stage.
    If a hard refresh exposes drift that cached preflight state hid, the command
    submits no lone downstream sync: it re-runs the read-only preflight and
-   restarts the entire canonical pass in forced-replay mode.
+   restarts the entire canonical pass in forced-replay mode. Correlated manual
+   replays use a full Hook sync with pruning enabled so reviewed resource
+   deletions are applied along with updates.
 3. It compares the complete content-addressed desired skill bundle with the
    live `mandate-skill-packs` ConfigMap. Argo `Synced` alone is not accepted,
    because that ConfigMap's data is intentionally ignored by Argo. The
