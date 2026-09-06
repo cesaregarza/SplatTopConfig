@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-callback-dns
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: hermes-callback.garz.ai
+    external-dns.alpha.kubernetes.io/target: "167.99.124.251"
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"
+spec:
+  # DNS ownership only: no selector, endpoints, externalIPs, or load balancer.
+  # TLS terminates directly on the existing Hermes host; this is not a proxy.
+  type: ClusterIP
+  ports:
+    - name: https
+      port: 443
+      protocol: TCP

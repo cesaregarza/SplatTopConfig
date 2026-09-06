@@ -7,5 +7,6 @@ resources:
   - clusterrole.yaml
   - clusterrolebinding.yaml
   - deployment.yaml
+  - hermes-callback-dns.yaml
 generators:
   - ksops.yaml
