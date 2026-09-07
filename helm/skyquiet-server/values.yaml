@@ -12,7 +12,8 @@ nameOverride: ""
 fullnameOverride: ""
 
 api:
-  replicaCount: 1
+  # Skyquiet is retired; keep configuration and external data for rollback.
+  replicaCount: 0
   resources:
     requests:
       cpu: 30m
@@ -22,7 +23,7 @@ api:
       memory: 512Mi
 
 worker:
-  replicaCount: 1
+  replicaCount: 0
   resources:
     requests:
       cpu: 50m
