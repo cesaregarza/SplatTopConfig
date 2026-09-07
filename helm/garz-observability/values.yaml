@@ -158,6 +158,7 @@ monitoring:
   # Grafana configuration
   grafana:
     enabled: false
+    nodeSelector: {}
     replicas: 1
     image:
       repository: grafana/grafana

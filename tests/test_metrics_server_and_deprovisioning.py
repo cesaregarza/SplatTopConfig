@@ -69,6 +69,10 @@ class MetricsServerAndDeprovisioningTests(unittest.TestCase):
         api_service = _find_doc(docs, kind="APIService", name="v1beta1.metrics.k8s.io")
 
         container = deployment["spec"]["template"]["spec"]["containers"][0]
+        self.assertEqual(deployment["spec"]["template"]["spec"]["nodeSelector"], {
+            "kubernetes.io/os": "linux",
+            "doks.digitalocean.com/node-pool": "pool-garz-ai",
+        })
         self.assertEqual(
             container["image"],
             "registry.k8s.io/metrics-server/metrics-server:v0.8.1",

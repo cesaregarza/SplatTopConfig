@@ -48,7 +48,7 @@ class MemoryPoolPlacementTests(unittest.TestCase):
                     if doc is target or doc["kind"] not in ("Deployment", "StatefulSet", "Job"):
                         continue
                     selector = doc["spec"]["template"]["spec"].get("nodeSelector", {})
-                    self.assertNotIn("doks.digitalocean.com/node-pool", selector)
+                    self.assertNotEqual(selector.get("doks.digitalocean.com/node-pool"), "pool-garz-memory")
 
     def test_defaults_remain_schedulable_without_a_memory_pool(self) -> None:
         for chart, suffix in (("splattop", "celery-worker"),
@@ -57,7 +57,8 @@ class MemoryPoolPlacementTests(unittest.TestCase):
                 self.assertNotIn("nodeSelector", self.target(chart, False, suffix)["spec"]["template"]["spec"])
 
     def test_general_pool_preferences_allow_fallback(self) -> None:
-        for chart, suffix in (("splattop", "fastapi"),):
+        for chart, suffix in (("splattop", "fastapi"),
+                              ("garz-observability", "alertmanager")):
             with self.subTest(chart=chart):
                 pod = self.target(chart, True, suffix)["spec"]["template"]["spec"]
                 self.assertNotIn("nodeSelector", pod)
@@ -72,13 +73,13 @@ class MemoryPoolPlacementTests(unittest.TestCase):
                 }])
 
     def test_small_monitoring_service_reserves_worker_surge_headroom(self) -> None:
-        pod = self.target("garz-observability", True, "alertmanager")["spec"]["template"]["spec"]
-        self.assertEqual(pod["affinity"]["nodeAffinity"], {
-            "requiredDuringSchedulingIgnoredDuringExecution": {"nodeSelectorTerms": [{
-                "matchExpressions": [{"key": "doks.digitalocean.com/node-pool",
-                                      "operator": "In", "values": ["pool-garz-ai"]}],
-            }]},
-        })
+        grafana = self.target("garz-observability", True, "grafana")
+        pod = grafana["spec"]["template"]["spec"]
+        self.assertEqual(pod["nodeSelector"], {"doks.digitalocean.com/node-pool": "pool-garz-ai"})
+        self.assertEqual(grafana["spec"]["strategy"], {"type": "Recreate"})
+        claims = [volume["persistentVolumeClaim"]["claimName"] for volume in pod["volumes"]
+                  if "persistentVolumeClaim" in volume]
+        self.assertEqual(claims, ["splattop-prod-grafana-storage"])
 
     def test_worker_grace_changes_without_concurrency_or_command_changes(self) -> None:
         base = self.target("splattop", False, "celery-worker")["spec"]["template"]["spec"]

@@ -180,6 +180,7 @@ spec:
           name: tmp-dir
       nodeSelector:
         kubernetes.io/os: linux
+        doks.digitalocean.com/node-pool: pool-garz-ai
       priorityClassName: system-cluster-critical
       serviceAccountName: metrics-server
       volumes:
