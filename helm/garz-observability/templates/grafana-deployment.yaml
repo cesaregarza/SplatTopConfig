@@ -22,6 +22,10 @@ spec:
       labels:
         {{- include "garzObservability.componentSelectorLabels" (dict "component" "grafana" "root" .) | nindent 8 }}
     spec:
+      {{- with .Values.monitoring.grafana.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         fsGroup: 472
         runAsNonRoot: true
