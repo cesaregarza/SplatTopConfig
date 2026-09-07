@@ -4,6 +4,7 @@ image:
   repository: nginx
   tag: "1.27-alpine"
   pullPolicy: IfNotPresent
+resources: {}
 
 # Default annotations applied to every vanity ingress. You can add cert-manager
 # issuer annotations here if you want cert-manager to provision per-host certs.

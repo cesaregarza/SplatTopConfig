@@ -32,6 +32,10 @@ monitoring:
     enabled: true
     nodeSelector:
       doks.digitalocean.com/node-pool: pool-garz-memory
+    # Based on fourteen days of CPU history; existing limits stay unchanged.
+    resources:
+      requests:
+        cpu: 150m
     kubeletScrape:
       enabled: true
     staticScrapeConfigs:
@@ -59,6 +63,9 @@ monitoring:
     enabled: true
   grafana:
     enabled: true
+    resources:
+      requests:
+        cpu: 25m
     serverDomain: grafana.splat.top
     serverRootUrl: https://grafana.splat.top/
     plugins:
@@ -121,6 +128,19 @@ monitoring:
           app.kubernetes.io/name: splattop
   alertmanager:
     enabled: true
+    resources:
+      requests:
+        cpu: 25m
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+            - key: doks.digitalocean.com/node-pool
+              operator: In
+              values:
+              - pool-garz-ai
     service:
       extraServices:
       - name: alertmanager

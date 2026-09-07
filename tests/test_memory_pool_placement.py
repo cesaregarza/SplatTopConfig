@@ -56,6 +56,22 @@ class MemoryPoolPlacementTests(unittest.TestCase):
             with self.subTest(chart=chart):
                 self.assertNotIn("nodeSelector", self.target(chart, False, suffix)["spec"]["template"]["spec"])
 
+    def test_general_pool_preferences_allow_fallback(self) -> None:
+        for chart, suffix in (("splattop", "fastapi"),
+                              ("garz-observability", "alertmanager")):
+            with self.subTest(chart=chart):
+                pod = self.target(chart, True, suffix)["spec"]["template"]["spec"]
+                self.assertNotIn("nodeSelector", pod)
+                affinity = pod["affinity"]["nodeAffinity"]
+                self.assertNotIn("requiredDuringSchedulingIgnoredDuringExecution", affinity)
+                self.assertEqual(affinity["preferredDuringSchedulingIgnoredDuringExecution"], [{
+                    "weight": 100,
+                    "preference": {"matchExpressions": [{
+                        "key": "doks.digitalocean.com/node-pool",
+                        "operator": "In", "values": ["pool-garz-ai"],
+                    }]},
+                }])
+
     def test_worker_grace_changes_without_concurrency_or_command_changes(self) -> None:
         base = self.target("splattop", False, "celery-worker")["spec"]["template"]["spec"]
         prod = self.target("splattop", True, "celery-worker")["spec"]["template"]["spec"]

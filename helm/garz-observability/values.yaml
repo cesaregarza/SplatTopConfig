@@ -241,6 +241,7 @@ monitoring:
   alertmanager:
     enabled: false
     replicas: 1
+    affinity: {}
     image:
       repository: prom/alertmanager
       tag: v0.27.0

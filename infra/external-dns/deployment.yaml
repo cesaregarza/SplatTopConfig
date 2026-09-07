@@ -19,6 +19,16 @@ spec:
         app.kubernetes.io/instance: external-dns
     spec:
       serviceAccountName: external-dns
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: doks.digitalocean.com/node-pool
+                operator: In
+                values:
+                - pool-garz-ai
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
@@ -69,7 +79,7 @@ spec:
             timeoutSeconds: 5
           resources:
             requests:
-              cpu: 50m
+              cpu: 25m
               memory: 64Mi
             limits:
               cpu: 200m

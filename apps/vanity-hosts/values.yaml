@@ -11,6 +11,9 @@
 #       cert-manager.io/cluster-issuer: letsencrypt-prod
 
 ingressClassName: nginx
+resources:
+  requests:
+    cpu: 5m
 defaultAnnotations:
   cert-manager.io/cluster-issuer: letsencrypt-prod
 defaultTlsSecretName: ""
