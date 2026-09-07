@@ -585,6 +585,67 @@ class AgentControlPlaneRegistryOverlayTests(unittest.TestCase):
         self.assertIn("reason=unsafe-rwo-state", result.stderr)
         self.assertFalse(any(" patch " in f" {call} " for call in calls))
 
+    def test_rollout_strategy_hook_skips_confirmed_absent_optional_callback(
+        self,
+    ) -> None:
+        optional = "agent-control-plane-callback-adapter"
+        result, calls = self._run_rollout_strategy_script(
+            absent_deployment=optional,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(
+            f"deployment={optional} phase=presence result=skipped "
+            "reason=optional-deployment-absent",
+            result.stdout,
+        )
+        self.assertFalse(
+            any(optional in call and " patch " in f" {call} " for call in calls)
+        )
+        self.assertIn(
+            "phase=complete result=succeeded rolling_deployments=3",
+            result.stdout,
+        )
+
+    def test_rollout_strategy_hook_fails_on_absent_required_deployment(self) -> None:
+        required = "agent-control-plane"
+        result, calls = self._run_rollout_strategy_script(
+            absent_deployment=required,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            f"deployment={required} phase=presence result=failed "
+            "reason=deployment-not-found",
+            result.stderr,
+        )
+        self.assertFalse(any(" patch " in f" {call} " for call in calls))
+
+    def test_rollout_strategy_hook_fails_on_optional_callback_api_error(self) -> None:
+        optional = "agent-control-plane-callback-adapter"
+        result, calls = self._run_rollout_strategy_script(
+            fail_match=f"get deployment/{optional} --ignore-not-found",
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            f"deployment={optional} phase=presence result=failed "
+            "kubectl_exit_code=70",
+            result.stderr,
+        )
+        self.assertFalse(any(" patch " in f" {call} " for call in calls))
+
+    def test_rollout_strategy_hook_keeps_present_callback_checks_and_patch(self) -> None:
+        optional = "agent-control-plane-callback-adapter"
+        result, calls = self._run_rollout_strategy_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(
+            f"-n agent-control-plane get deployment/{optional} "
+            "--ignore-not-found -o name",
+            calls,
+        )
+        callback_calls = [call for call in calls if optional in call]
+        self.assertTrue(any("get deployment/" + optional in call for call in callback_calls))
+        self.assertTrue(any("patch deployment/" + optional in call for call in callback_calls))
+        self.assertTrue(any("jsonpath={.spec.strategy.type}" in call for call in callback_calls))
+
     def test_rollout_strategy_hook_rejects_unsettled_target_before_any_patch(
         self,
     ) -> None:
@@ -607,7 +668,7 @@ class AgentControlPlaneRegistryOverlayTests(unittest.TestCase):
 
     def test_rollout_strategy_hook_stops_on_inspection_error(self) -> None:
         result, calls = self._run_rollout_strategy_script(
-            fail_match="get deployment/agent-control-plane ",
+            fail_match="get deployment/agent-control-plane -o jsonpath=",
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(
@@ -655,6 +716,7 @@ class AgentControlPlaneRegistryOverlayTests(unittest.TestCase):
         gateway_state: str = "7|7|1|1|1|1|1|Recreate",
         strategy_state: str = "RollingUpdate|0|1",
         fail_match: str = "",
+        absent_deployment: str = "",
     ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
         script = self.registry_overlay_rollout_strategy_hook["spec"]["template"]["spec"][
             "containers"
@@ -673,6 +735,14 @@ if [ -n "$FAIL_MATCH" ]; then
 fi
 case "$3" in
   get)
+    if [ "$5" = "--ignore-not-found" ] && [ "$7" = "name" ]; then
+      deployment="${4#deployment/}"
+      if [ "$deployment" = "$ABSENT_DEPLOYMENT" ]; then
+        exit 0
+      fi
+      printf 'deployment.apps/%s' "$deployment"
+      exit 0
+    fi
     case "$6" in
       'jsonpath={.metadata.generation}|{.status.observedGeneration}|{.spec.replicas}|{.status.replicas}|{.status.updatedReplicas}|{.status.readyReplicas}|{.status.availableReplicas}')
         printf '%s' "$ROLLING_STATE"
@@ -708,6 +778,7 @@ esac
                     "GATEWAY_STATE": gateway_state,
                     "STRATEGY_STATE": strategy_state,
                     "FAIL_MATCH": fail_match,
+                    "ABSENT_DEPLOYMENT": absent_deployment,
                     "API_TIMEOUT_SECONDS": "1",
                 }
             )
@@ -737,6 +808,10 @@ esac
         expected_calls = []
         for deployment in REGISTRY_OVERLAY_RESTART_ORDER:
             component = REGISTRY_OVERLAY_COMPONENTS[deployment]
+            presence = (
+                "-n agent-control-plane get "
+                f"deployment/{deployment} --ignore-not-found -o name"
+            )
             pod_list = (
                 "-n agent-control-plane get pods -l "
                 "app.kubernetes.io/name=agent-control-plane,"
@@ -746,6 +821,7 @@ esac
             )
             expected_calls.extend(
                 [
+                    presence,
                     pod_list,
                     (
                         "-n agent-control-plane rollout restart "
@@ -779,8 +855,44 @@ esac
                 'deadline="$(( $(date +%s) + rollout_timeout_seconds ))"'
             ),
             1,
-            "rollout readiness and old-pod drain must share one deadline",
+            "each iteration must share one deadline for presence, rollout, and drain",
         )
+
+    def test_restart_script_skips_confirmed_absent_optional_callback(self) -> None:
+        optional = "agent-control-plane-callback-adapter"
+        result, calls = self._run_restart_script(absent_deployment=optional)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(
+            f"deployment={optional} phase=presence result=skipped "
+            "reason=optional-deployment-absent",
+            result.stdout,
+        )
+        self.assertFalse(any(f"rollout restart deployment/{optional}" in call for call in calls))
+        self.assertIn("phase=complete result=succeeded deployments=4", result.stdout)
+
+    def test_restart_script_fails_on_absent_required_deployment(self) -> None:
+        required = "agent-control-plane"
+        result, calls = self._run_restart_script(absent_deployment=required)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            f"deployment={required} phase=presence result=failed "
+            "reason=deployment-not-found",
+            result.stderr,
+        )
+        self.assertFalse(any("rollout restart" in call for call in calls))
+
+    def test_restart_script_fails_on_optional_callback_api_error(self) -> None:
+        optional = "agent-control-plane-callback-adapter"
+        result, calls = self._run_restart_script(
+            fail_match=f"get deployment/{optional} --ignore-not-found",
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            f"deployment={optional} phase=presence result=failed "
+            "reason=api-error kubectl_exit_code=70",
+            result.stderr,
+        )
+        self.assertFalse(any(f"rollout restart deployment/{optional}" in call for call in calls))
 
     def test_restart_script_timeout_names_deployment_and_stops_later_restarts(
         self,
@@ -853,6 +965,8 @@ esac
         fail_restart_deployment: str = "",
         linger_old_pod_deployment: str = "",
         hang_capture_deployment: str = "",
+        absent_deployment: str = "",
+        fail_match: str = "",
     ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
         restart_script = self.registry_overlay_restart_hook["spec"]["template"]["spec"][
             "containers"
@@ -877,6 +991,19 @@ fi
             fake_kubectl.write_text(
                 """#!/bin/sh
 printf '%s\\n' "$*" >> "$KUBECTL_LOG"
+if [ -n "$FAIL_MATCH" ]; then
+  case "$*" in
+    *"$FAIL_MATCH"*) exit 70 ;;
+  esac
+fi
+if [ "$5" = "--ignore-not-found" ] && [ "$7" = "name" ]; then
+  deployment="${4#deployment/}"
+  if [ "$deployment" = "$ABSENT_DEPLOYMENT" ]; then
+    exit 0
+  fi
+  printf 'deployment.apps/%s' "$deployment"
+  exit 0
+fi
 case "$3" in
   rollout)
     deployment="${5#deployment/}"
@@ -939,6 +1066,8 @@ exit 64
                     "KUBECTL_LOG": str(kubectl_log),
                     "FAIL_WAIT_DEPLOYMENT": fail_wait_deployment,
                     "FAIL_RESTART_DEPLOYMENT": fail_restart_deployment,
+                    "ABSENT_DEPLOYMENT": absent_deployment,
+                    "FAIL_MATCH": fail_match,
                     "DEADLINE_EXPIRED_FILE": str(deadline_expired),
                     "HANG_CAPTURE_COMPONENT": REGISTRY_OVERLAY_COMPONENTS.get(
                         hang_capture_deployment, ""

@@ -56,6 +56,8 @@ spec:
               # gateway replacement prefers the newly healthy API node. Only
               # after that core pair is healthy do boot-cached consumers roll.
               deployments="agent-control-plane agent-control-plane-model-gateway agent-control-plane-callback-adapter agent-control-plane-git-deliverer agent-control-plane-local-worker"
+              optional_callback_deployment="agent-control-plane-callback-adapter"
+              present_deployment_count=0
 
               log() {
                 printf '[registry-overlay-restart] %s\n' "$*"
@@ -209,11 +211,27 @@ spec:
               }
 
               for deployment in $deployments; do
+                deadline="$(( $(date +%s) + rollout_timeout_seconds ))"
+                if ! deployment_name="$(
+                  kubectl_with_deadline "$deployment" presence "$deadline" \
+                    -n "$namespace" get "deployment/$deployment" \
+                    --ignore-not-found -o name
+                )"; then
+                  exit 1
+                fi
+                if [ -z "$deployment_name" ]; then
+                  if [ "$deployment" = "$optional_callback_deployment" ]; then
+                    log "deployment=$deployment phase=presence result=skipped reason=optional-deployment-absent"
+                    continue
+                  fi
+                  log "deployment=$deployment phase=presence result=failed reason=deployment-not-found" >&2
+                  exit 1
+                fi
+                present_deployment_count="$((present_deployment_count + 1))"
                 if ! component="$(component_for_deployment "$deployment")"; then
                   log "deployment=$deployment phase=capture result=failed reason=unknown-component" >&2
                   exit 1
                 fi
-                deadline="$(( $(date +%s) + rollout_timeout_seconds ))"
                 if ! old_pods="$(
                   list_component_pods "$deployment" "$component" capture "$deadline"
                 )"; then
@@ -247,7 +265,7 @@ spec:
                 log "deployment=$deployment phase=drain result=completed"
               done
 
-              log "phase=complete result=succeeded deployments=5"
+              log "phase=complete result=succeeded deployments=$present_deployment_count"
           securityContext:
             runAsNonRoot: true
             runAsUser: 65534
