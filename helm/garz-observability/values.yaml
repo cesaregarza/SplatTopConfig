@@ -27,6 +27,7 @@ monitoring:
       extraEgress: []
     prometheus:
       enabled: true
+      citrusDevMetrics: false
       allowedIngressNamespaces:
       - monitoring
       - ingress-nginx
