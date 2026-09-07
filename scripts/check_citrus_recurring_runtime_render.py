@@ -90,6 +90,17 @@ def _render_specs() -> tuple[RenderSpec, ...]:
             ("values.yaml", "values-dev.yaml", "values-payment-dev.yaml"),
         ),
         RenderSpec(
+            "citrus-runtime-dev",
+            "citrus-dev",
+            "citrus-dev",
+            (
+                "values.yaml",
+                "values-dev.yaml",
+                "values-payment-dev.yaml",
+                "values-recurring-dev.yaml",
+            ),
+        ),
+        RenderSpec(
             "citrus-payment-prod",
             "citrus",
             "default",
@@ -165,6 +176,7 @@ def _verify_renders(rendered: dict[str, str], *, active_dev_revision: str) -> No
     dev = rendered["citrus-dev"]
     safe_dev = rendered["citrus-payment-safety-dev"]
     safe_prod = rendered["citrus-payment-safety-prod"]
+    runtime_dev = rendered["citrus-runtime-dev"]
 
     for marker in (
         "app.kubernetes.io/instance: citrus\n",
@@ -265,6 +277,28 @@ def _verify_renders(rendered: dict[str, str], *, active_dev_revision: str) -> No
 
     for marker in ("kind: CiliumNetworkPolicy", "- all", 'value: "allow"'):
         _require(safe_prod, marker, render="citrus-payment-safety-prod")
+
+    if _active_dev_revision(runtime_dev) != active_dev_revision:
+        raise ContractError("citrus-runtime-dev must retain the active dev image")
+    for component in (
+        "billing-worker", "recurring-preflight", "recurring-tick", "recurring-health"
+    ):
+        _require(
+            runtime_dev,
+            f"app.kubernetes.io/component: {component}",
+            render="citrus-runtime-dev",
+        )
+    for name, count in (
+        ("PAYMENT_EGRESS_POLICY_REVISION", 11),
+        ("RECURRING_RUNTIME_TOPOLOGY_REVISION", 5),
+        ("CITRUS_EXPECTED_SOURCE_REVISION", 5),
+    ):
+        if runtime_dev.count(f"name: {name}") != count:
+            raise ContractError(
+                f"citrus-runtime-dev must project {name} into exactly {count} containers"
+            )
+    if re.search(r"matchName:.*stripe\.(?:com|network)", runtime_dev, re.IGNORECASE):
+        raise ContractError("citrus-runtime-dev must omit every Stripe destination")
 
     for name, contents in rendered.items():
         if re.search(r"^kind:\s+Secret\s*$", contents, re.MULTILINE):

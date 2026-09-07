@@ -325,9 +325,9 @@ jobs:
           mkdir -p rendered
           chart=helm/citrus
 
-          # Match the two Argo Applications exactly. Production uses only the
-          # chart defaults; dev activates the isolated test-mode payment source
-          # and the CES-845 Cilium deny boundary.
+          # Preserve the production and base-dev safeguard matrix. The preceding
+          # checker also renders the actual Argo runtime overlay separately as
+          # citrus-runtime-dev.yaml for the same strict kubeconform pass.
           helm template citrus "$chart" \
             --namespace default \
             -f "$chart/values.yaml" \

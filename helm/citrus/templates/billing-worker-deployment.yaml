@@ -99,7 +99,7 @@ spec:
             - serve_recurring_metrics
             - --port={{ .Values.billingWorker.metrics.port }}
           ports:
-            - name: recurring-metrics
+            - name: metrics
               containerPort: {{ .Values.billingWorker.metrics.port }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}

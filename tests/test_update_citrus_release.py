@@ -49,7 +49,9 @@ class SyntheticRepository:
         self.values = self.chart / "values.yaml"
         self.dev_values = self.chart / "values-dev.yaml"
         self.dev_payment_values = self.chart / "values-payment-dev.yaml"
+        self.dev_runtime_values = self.chart / "values-recurring-dev.yaml"
         self.prod_payment_values = self.chart / "values-payment-prod.yaml"
+        _write_yaml(self.dev_runtime_values, {})
         _write_yaml(
             self.values,
             {
@@ -149,6 +151,7 @@ class SyntheticRepository:
             self.values,
             self.dev_values,
             self.dev_payment_values,
+            self.dev_runtime_values,
             self.prod_payment_values,
         )
 
@@ -523,6 +526,7 @@ class CitrusReleaseRepositoryContractTests(unittest.TestCase):
                 "values.yaml",
                 "values-dev.yaml",
                 "values-payment-dev.yaml",
+                "values-recurring-dev.yaml",
                 "values-payment-prod.yaml",
             ):
                 shutil.copyfile(REPO_ROOT / "helm" / "citrus" / name, chart / name)
@@ -532,6 +536,7 @@ class CitrusReleaseRepositoryContractTests(unittest.TestCase):
                     "values.yaml",
                     "values-dev.yaml",
                     "values-payment-dev.yaml",
+                    "values-recurring-dev.yaml",
                     "values-payment-prod.yaml",
                 )
             }
@@ -553,6 +558,10 @@ class CitrusReleaseRepositoryContractTests(unittest.TestCase):
                 ),
             )
             self.assertEqual((chart / "values.yaml").read_bytes(), paths["values.yaml"])
+            self.assertEqual(
+                (chart / "values-recurring-dev.yaml").read_bytes(),
+                paths["values-recurring-dev.yaml"],
+            )
             self.assertEqual(
                 (chart / "values-payment-prod.yaml").read_bytes(),
                 paths["values-payment-prod.yaml"],

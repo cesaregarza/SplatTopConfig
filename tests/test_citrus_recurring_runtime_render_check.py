@@ -59,12 +59,13 @@ class CitrusRecurringRuntimeRenderCheckTests(unittest.TestCase):
                 lint=False,
             )
             self.assertEqual(receipt["result"], "succeeded")
-            self.assertEqual(receipt["render_count"], 6)
+            self.assertEqual(receipt["render_count"], 7)
             self.assertEqual(
                 {path.name for path in output_dir.glob("*.yaml")},
                 {
                     "citrus-prod.yaml",
                     "citrus-dev.yaml",
+                    "citrus-runtime-dev.yaml",
                     "citrus-payment-prod.yaml",
                     "citrus-payment-dev.yaml",
                     "citrus-payment-safety-prod.yaml",

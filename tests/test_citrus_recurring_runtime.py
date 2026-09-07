@@ -216,6 +216,26 @@ class CitrusRecurringRuntimeChartTests(unittest.TestCase):
         )
         self.assertIn("serve_recurring_metrics", metrics["command"])
 
+    def test_metrics_port_is_admitted_by_kubernetes_and_matches_scraping(self) -> None:
+        deployment = _named(
+            self.activated, "Deployment", "citrus-dev-billing-worker"
+        )
+        template = deployment["spec"]["template"]
+        metrics = next(
+            item for item in template["spec"]["containers"]
+            if item["name"] == "recurring-metrics"
+        )
+        port = metrics["ports"][0]
+        # Kubeconform's schema does not enforce Kubernetes' named-port limit.
+        self.assertLessEqual(len(port["name"]), 15)
+        self.assertRegex(port["name"], r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+        self.assertRegex(port["name"], r"[a-z]")
+        self.assertEqual(
+            template["metadata"]["annotations"]["prometheus.io/port"],
+            str(port["containerPort"]),
+        )
+        self.assertIn(f"--port={port['containerPort']}", metrics["command"])
+
     def test_runtime_requires_worker_and_queue_has_one_source_of_truth(self) -> None:
         command = [
             "helm",

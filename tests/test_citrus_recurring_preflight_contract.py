@@ -187,7 +187,7 @@ class CitrusRecurringPreflightContractTests(unittest.TestCase):
             _command(development=True, runtime_enabled=False)
         )
 
-    def test_current_production_and_dev_renders_remain_inert(self) -> None:
+    def test_production_and_base_dev_renders_remain_inert(self) -> None:
         forbidden_suffixes = {
             "billing-worker",
             "recurring-preflight",
@@ -812,7 +812,7 @@ class CitrusRecurringPreflightContractTests(unittest.TestCase):
         for required in (
             "disabled by default",
             "Never contact Stripe to validate this contract",
-            "This render-only slice cannot make that source claim",
+            "Chart rendering alone cannot make that source claim",
             "Never use Argo selective-resource sync",
             "sync the complete `citrus` or `citrus-dev` Application only",
             "Do not sync that change without explicit operator authorization",
@@ -836,6 +836,87 @@ class CitrusRecurringPreflightContractTests(unittest.TestCase):
                 )
                 self.assertNotEqual(result.returncode, 0, result.stdout)
                 self.assertIn(expected, result.stderr)
+
+
+class CitrusDormantDevActivationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        application = YAML_PARSER.load(
+            (REPO_ROOT / "argocd/applications/citrus-dev.yaml").read_text()
+        )
+        cls.value_files = application["spec"]["source"]["helm"]["valueFiles"]
+        command = [
+            "helm", "template",
+            application["spec"]["source"]["helm"]["releaseName"],
+            str(CHART_PATH), "--namespace",
+            application["spec"]["destination"]["namespace"],
+        ]
+        cls.active_command = list(command)
+        baseline_command = list(command)
+        for filename in cls.value_files:
+            cls.active_command.extend(["-f", str(CHART_PATH / filename)])
+            if filename != "values-recurring-dev.yaml":
+                baseline_command.extend(["-f", str(CHART_PATH / filename)])
+        cls.active = {_key(item): item for item in _documents(cls.active_command)}
+        cls.baseline = {_key(item): item for item in _documents(baseline_command)}
+        cls.runtime_keys = {
+            ("Deployment", "citrus-dev-billing-worker"),
+            ("Job", "citrus-dev-recurring-preflight"),
+            ("CronJob", "citrus-dev-recurring-tick"),
+            ("CronJob", "citrus-dev-recurring-health"),
+        }
+
+    def test_actual_argo_overlay_is_in_the_ci_render_matrix(self) -> None:
+        from scripts.check_citrus_recurring_runtime_render import _render_specs
+
+        spec = next(item for item in _render_specs() if item.name == "citrus-runtime-dev")
+        self.assertIn("values-recurring-dev.yaml", self.value_files)
+        self.assertEqual(list(spec.value_files), self.value_files)
+        self.assertEqual((spec.release, spec.namespace), ("citrus-dev", "citrus-dev"))
+
+    def test_activation_and_rollback_only_change_four_stateless_resources(self) -> None:
+        self.assertEqual(self.active.keys() - self.baseline.keys(), self.runtime_keys)
+        self.assertFalse(self.baseline.keys() - self.active.keys())
+        for key in self.baseline:
+            with self.subTest(resource=key):
+                self.assertEqual(self.active[key], self.baseline[key])
+
+    def test_runtime_uses_the_actual_image_and_dormant_safety_contract(self) -> None:
+        revision = YAML_PARSER.load(DEV_VALUES.read_text())["image"]["tag"]
+        container_count = 0
+        for key in self.runtime_keys:
+            template = _pod_template(self.active[key])
+            self.assertFalse(template["spec"]["automountServiceAccountToken"])
+            for container in template["spec"]["containers"]:
+                with self.subTest(resource=key, container=container["name"]):
+                    env = _literal_env(container)
+                    self.assertEqual(env[SOURCE_REVISION_ENV], revision)
+                    self.assertEqual(container["image"].rsplit(":", 1)[1], revision)
+                    self.assertEqual(env["RECURRING_RUNTIME_TOPOLOGY_REVISION"], "ces-850-dev-v1")
+                    self.assertEqual(env["RECURRING_RUNTIME_SCHEDULER"], "kubernetes-cronjob")
+                    self.assertEqual(env["PAYMENT_NETWORK_MODE"], "deny")
+                    self.assertNotIn("CITRUS_STRIPE_SMOKE_RUNNER", env)
+                    container_count += 1
+        self.assertEqual(container_count, 5)
+        config = self.active[("ConfigMap", "django-config")]["data"]
+        for name, expected in {
+            "RECURRING_ORDER_ENROLLMENT_MODE": "off",
+            "RECURRING_ORDER_COHORT_MODE": "off",
+            "RECURRING_REMINDERS_ENABLED": "False",
+            "RECURRING_CHARGING_ENABLED": "False",
+            "RECURRING_CHARGE_EMERGENCY_STOP": "True",
+        }.items():
+            self.assertEqual(config[name], expected)
+
+    def test_actual_activation_cannot_enable_charges_or_skip_preflight(self) -> None:
+        for flag, override, message in (
+            ("--set-string", "application.configData.RECURRING_CHARGING_ENABLED=True", "RECURRING_CHARGING_ENABLED"),
+            ("--set", "recurringRuntime.preflight.enabled=false", "preflight"),
+        ):
+            with self.subTest(override=override):
+                result = _run([*self.active_command, flag, override])
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
 
 
 if __name__ == "__main__":
