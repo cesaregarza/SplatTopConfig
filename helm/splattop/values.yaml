@@ -61,6 +61,7 @@ fastapi:
   env:
     COMP_LEADERBOARD_ENABLED: "true"
   resources: {}
+  affinity: {}
   livenessProbe: {}
   readinessProbe: {}
   extraSecretEnv:

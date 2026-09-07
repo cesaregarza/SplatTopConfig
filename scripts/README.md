@@ -4,6 +4,17 @@ Utilities that were previously bundled with the app repo move here when they are
 
 ## Available
 
+- `verify_manifest_delta.py` – verifies an exact, value-aware delta between two
+  multi-document Kubernetes manifests without printing changed values. It
+  rejects duplicate resources and inventory changes and writes a receipt with
+  resource identities and changed paths:
+
+  ```bash
+  uv run python scripts/verify_manifest_delta.py \
+    --before /tmp/before.yaml --after /tmp/after.yaml \
+    --expected /tmp/expected.json --output /tmp/verified-delta.json
+  ```
+
 - `update_citrus_release.py` – applies one exact lowercase 40-hex Citrus source
   revision to every active image binding owned by the selected environment. The
   binding registry at `helm/citrus/release-bindings.json` mirrors the Argo value

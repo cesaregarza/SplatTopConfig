@@ -16,6 +16,10 @@ spec:
         {{- include "splattop.componentSelectorLabels" (dict "component" "fastapi" "root" .) | nindent 8 }}
     spec:
       {{- include "splattop.imagePullSecrets" . | nindent 6 }}
+      {{- with .Values.fastapi.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: fastapi
           image: "{{ .Values.fastapi.image.repository }}:{{ include "splattop.imageTag" (dict "component" "fastapi" "root" .) }}"

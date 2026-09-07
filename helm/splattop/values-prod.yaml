@@ -10,6 +10,20 @@ global:
   appImageTag: v2.0.39
 fastapi:
   replicas: 2
+  # Reserve typical CPU use while allowing burst above it; no CPU limit.
+  resources:
+    requests:
+      cpu: 150m
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+          - key: doks.digitalocean.com/node-pool
+            operator: In
+            values:
+            - pool-garz-ai
   env:
     COMP_LEADERBOARD_ENABLED: "true"
   service:
@@ -32,6 +46,9 @@ fastapi:
     tag: v2.0.39
 react:
   replicas: 2
+  resources:
+    requests:
+      cpu: 5m
   service:
     extraServices:
     - name: react-app-service
@@ -50,6 +67,10 @@ react:
 celeryWorker:
   nodeSelector:
     doks.digitalocean.com/node-pool: pool-garz-memory
+  # Reserve typical CPU use; concurrency and burst capacity stay unchanged.
+  resources:
+    requests:
+      cpu: 150m
   # Let in-flight tasks finish during future moves. The initial migration must
   # separately quiesce the old pod, which still has its previous 30-second grace.
   terminationGracePeriodSeconds: 600

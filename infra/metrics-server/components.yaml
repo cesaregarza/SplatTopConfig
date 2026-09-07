@@ -163,7 +163,7 @@ spec:
           periodSeconds: 10
         resources:
           requests:
-            cpu: 100m
+            cpu: 25m
             memory: 200Mi
         securityContext:
           allowPrivilegeEscalation: false
