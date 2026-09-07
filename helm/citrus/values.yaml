@@ -434,6 +434,15 @@ redis:
   enabled: true
   name: citrus-redis
   replicas: 1
+  nodeSelector:
+    doks.digitalocean.com/node-pool: pool-garz-memory
+  persistence:
+    enabled: true
+    name: citrus-redis-data
+    storageClassName: do-block-storage-retain
+    size: 1Gi
+    accessModes:
+      - ReadWriteOnce
   image:
     repository: redis
     tag: "7.2.4-alpine"
