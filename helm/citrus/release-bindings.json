@@ -5,7 +5,8 @@
       "appliedValues": [
         "helm/citrus/values.yaml",
         "helm/citrus/values-dev.yaml",
-        "helm/citrus/values-payment-dev.yaml"
+        "helm/citrus/values-payment-dev.yaml",
+        "helm/citrus/values-recurring-dev.yaml"
       ],
       "operationalValues": [
         "helm/citrus/values-dev.yaml",

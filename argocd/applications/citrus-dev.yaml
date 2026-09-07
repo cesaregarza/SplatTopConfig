@@ -19,6 +19,7 @@ spec:
         - values.yaml
         - values-dev.yaml
         - values-payment-dev.yaml
+        - values-recurring-dev.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: citrus-dev

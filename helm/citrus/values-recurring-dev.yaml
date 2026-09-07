@@ -1,0 +1,16 @@
+# CES-850: development runtime staging. Customer enrollment, reminders and
+# charging retain their fail-closed base settings; provider egress stays denied.
+# Image identity comes from the existing atomic bindings in values-dev.yaml.
+billingWorker:
+  enabled: true
+  topologyRevision: ces-850-dev-v1
+
+recurringRuntime:
+  enabled: true
+  topologyRevision: ces-850-dev-v1
+  preflight:
+    enabled: true
+    topologyRevision: ces-850-dev-v1
+  health:
+    enabled: true
+    topologyRevision: ces-850-dev-v1

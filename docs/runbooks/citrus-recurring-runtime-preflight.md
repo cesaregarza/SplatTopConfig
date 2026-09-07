@@ -2,17 +2,31 @@
 
 ## Current status
 
-The CES-850 runtime contract is disabled by default. The production and dev
-Argo Applications do not enable the billing worker, recurring preflight, tick,
-or health workloads, and their values overlays do not contain a topology
-revision. Merging this chart support therefore creates no recurring controller
-and performs no provider request, Kubernetes change, Argo sync, migration, or
-customer action.
+The base chart keeps the CES-850 runtime disabled by default. The development Argo
+Application selects `values-recurring-dev.yaml` to stage the complete dormant
+runtime at topology revision `ces-850-dev-v1`. Production does not select this
+overlay. Merging that activation change allows the automated development sync
+to create the runtime, so it requires an explicit activation review.
 
-This preparation is not an activation receipt. CES-844 credential isolation,
-CES-845 payment-safety enforcement, a production-capable immutable image,
-source preflight acceptance, monitoring synchronization, and operator approval
-remain separate gates. Never contact Stripe to validate this contract.
+Enrollment, cohort, reminders and charging remain off, the emergency stop stays
+on, and the development Cilium boundary continues denying provider egress.
+The source image and its expected revision come from the existing atomic
+release bindings in `values-dev.yaml`; the activation overlay adds no image pin.
+Never contact Stripe to validate this contract.
+
+The pre-activation read-only check on source
+`8b0f675d46c8dc66e30fc9a90ae401605bb4ff0f` passed at
+`2026-09-07T00:33:02Z` with the proposed topology, scheduler and expected-source
+environment projected only into the inspection process. It found zero pending
+migrations, zero recurring rows or violations and billing queue depth zero.
+This proves the source preflight, not controller rollout or live idle behavior.
+
+The worker requests 75m CPU and 192Mi memory including its metrics sidecar.
+Each preflight/tick/health Job requests 50m CPU and 128Mi. Recheck scheduling
+headroom immediately before activation; pending unrelated workloads must not be
+displaced or resized as part of this change. After the complete Application
+sync, retain the hook result, worker readiness, idle tick/health results and
+metrics evidence before closing CES-850. CES-715 still owns customer rollout.
 
 ## Enabled-safe render contract
 
@@ -68,7 +82,7 @@ migrations (1) -> recurring preflight (2) -> billing worker (3) -> tick/health (
 The Job receives only configuration references and value-free runtime
 attestation. A later source release must prove that the command performs local
 database and broker reads without application writes, network discovery, HTTP,
-or provider mutation. This render-only slice cannot make that source claim.
+or provider mutation. Chart rendering alone cannot make that source claim.
 
 Never use Argo selective-resource sync for this topology: selective sync skips
 hooks and can bypass the preflight Job. Under separately authorized rollout,
@@ -96,14 +110,16 @@ scripts/check_citrus_recurring_runtime_render.py \
 
 Reviewers must verify all of the following on the exact signed commit:
 
-1. production and dev default renders omit all four recurring workloads;
+1. production and base dev renders omit all four recurring workloads;
 2. enabled-safe dev and production renders contain the complete topology;
 3. all workload and container topology revisions match;
 4. the five runtime containers receive the same expected source revision as
    their immutable image tag;
 5. the preflight batch label is selected by the CES-845 policy;
 6. every unsafe matrix case fails Helm rendering; and
-7. strict kubeconform accepts every generated manifest while skipping only the
+7. the actual Argo dev overlay adds only the four recurring resources, retains
+   every customer/payment gate, and binds all five containers to the same image;
+8. strict kubeconform accepts every generated manifest while skipping only the
    Cilium CRD whose schema is not in the default Kubernetes catalog.
 
 The first activation is deliberately single-consumer: `billingWorker.replicas`
@@ -116,10 +132,15 @@ automatic Kubernetes ServiceAccount-token mounting.
 
 ## Rollback render
 
-Rollback is a separately reviewed values change that disables
-`billingWorker.enabled`, `recurringRuntime.enabled`, and
-`recurringRuntime.preflight.enabled` together. Do not sync that change without
-explicit operator authorization.
+Rollback reverts the activation as one reviewed change: remove
+`values-recurring-dev.yaml` from the development Application's `valueFiles` and
+from dev `appliedValues` in `helm/citrus/release-bindings.json`; restore the
+matching path contract in `scripts/update_citrus_release.py` and the prior CI
+render matrix and activation tests together. The three runtime enable flags
+then return to their base defaults. Keep the current operational image bindings
+and other overlays in place, including subsequent release updates. Review and
+sync the complete Application so pruning removes the stateless runtime.
+Do not sync that change without explicit operator authorization.
 
 The automated render comparison requires the enabled-to-disabled delta to
 remove exactly the stateless billing Deployment, preflight Job hook, tick
