@@ -107,6 +107,8 @@ react:
 celeryWorker:
   enabled: true
   replicas: 1
+  nodeSelector: {}
+  terminationGracePeriodSeconds: 30
   image:
     repository: registry.digitalocean.com/sendouq/celery
     tag: v2.0.39

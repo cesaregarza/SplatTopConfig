@@ -30,6 +30,8 @@ monitoring:
       enabled: true
   prometheus:
     enabled: true
+    nodeSelector:
+      doks.digitalocean.com/node-pool: pool-garz-memory
     kubeletScrape:
       enabled: true
     staticScrapeConfigs:

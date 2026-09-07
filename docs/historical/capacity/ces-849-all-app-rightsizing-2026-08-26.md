@@ -1,5 +1,10 @@
 # CES-849 all-app right-sizing evidence — 2026-08-26
 
+The measurements below remain historical evidence. The user-approved September 7
+[parallel optimization batch](cluster-optimization-batch-2026-09-07.md) supersedes
+this document's one-application-at-a-time and 24-hour inter-application rollout
+schedule. Independent CPU request changes can proceed together.
+
 ## Decision
 
 Start with four one-replica, manual-sync applications and reduce only their CPU

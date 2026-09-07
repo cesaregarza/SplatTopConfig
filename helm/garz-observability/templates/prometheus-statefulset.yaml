@@ -26,6 +26,10 @@ spec:
       labels:
         {{- include "garzObservability.componentSelectorLabels" (dict "component" "prometheus" "root" .) | nindent 8 }}
     spec:
+      {{- with .Values.monitoring.prometheus.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       serviceAccountName: {{ include "garzObservability.fullname" . }}-prometheus
       securityContext:
         fsGroup: 65534
