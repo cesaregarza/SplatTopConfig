@@ -8,6 +8,10 @@ metadata:
     app.kubernetes.io/component: redis
 spec:
   replicas: {{ .Values.redis.replicas }}
+  {{- if .Values.redis.persistence.enabled }}
+  strategy:
+    type: Recreate
+  {{- end }}
   selector:
     matchLabels:
       {{- include "citrus.selectorLabels" . | nindent 6 }}
@@ -18,6 +22,17 @@ spec:
         {{- include "citrus.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: redis
     spec:
+      {{- with .Values.redis.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+        {{- if .Values.redis.persistence.enabled }}
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        {{- end }}
       containers:
         - name: redis
           image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
@@ -49,7 +64,15 @@ spec:
             capabilities:
               drop:
                 - ALL
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
+          {{- if .Values.redis.persistence.enabled }}
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+          {{- end }}
+      {{- if .Values.redis.persistence.enabled }}
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.redis.persistence.name }}
+      {{- end }}
 {{- end }}

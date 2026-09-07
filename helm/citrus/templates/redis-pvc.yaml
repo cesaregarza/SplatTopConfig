@@ -1,0 +1,21 @@
+{{- if and .Values.redis.enabled .Values.redis.persistence.enabled }}
+{{- if gt (int .Values.redis.replicas) 1 }}
+{{- fail "redis.persistence.enabled requires redis.replicas to be 1 or less" }}
+{{- end }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.redis.persistence.name }}
+  labels:
+    {{- include "citrus.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    {{- toYaml .Values.redis.persistence.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.redis.persistence.size }}
+  storageClassName: {{ .Values.redis.persistence.storageClassName }}
+{{- end }}
