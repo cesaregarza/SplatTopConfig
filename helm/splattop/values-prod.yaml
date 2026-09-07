@@ -48,6 +48,11 @@ react:
   image:
     tag: v2.0.38
 celeryWorker:
+  nodeSelector:
+    doks.digitalocean.com/node-pool: pool-garz-memory
+  # Let in-flight tasks finish during future moves. The initial migration must
+  # separately quiesce the old pod, which still has its previous 30-second grace.
+  terminationGracePeriodSeconds: 600
   env:
     COMP_LEADERBOARD_ENABLED: "true"
 

@@ -4,6 +4,32 @@ Independent application request changes and monitoring fixes can deploy together
 Only the SplatTop Celery concurrency experiment needs a separate throughput gate.
 This replaces the earlier blanket one-application-per-day rollout schedule.
 
+## Memory-node replacement
+
+The user subsequently authorized a premium memory node and retaining three
+workers during the transition, then authorized replacing one old node. The new
+`pool-garz-memory` pool is live with one `m-2vcpu-16gb-intel` worker. Its node
+`pool-garz-memory-3fnf23` is Ready and contributes 1900m CPU and 13.3215 GiB
+allocatable memory. The temporary three-node total is 5.7 CPU and 25.8374 GiB
+allocatable memory, at $225/month workers plus existing charges.
+
+Production Prometheus and SplatTop Celery now select that pool through their
+own nodeSelector values. Default charts remain unrestricted. Prometheus retains
+its existing 20 GiB RWO claim and single replica. Celery keeps the same image,
+command and two-process concurrency; its production termination grace becomes
+600 seconds for future rollouts. The old worker pod still has a 30-second grace,
+so stop its queue consumers and let active/reserved tasks finish before moving
+it. If the move cannot proceed, restore those consumers.
+
+Move the heavy workloads first and verify Prometheus readiness/volume identity
+and Celery broker responses on the memory node. Then drain the selected old
+node using normal evictions, respecting PDBs, active tasks, affinity, and local
+data. Remove only the evacuated provider node with pool-size decrement after
+the surviving workloads pass readiness and scheduling checks. Retain all three
+nodes if a concrete capacity or stateful-workload blocker prevents safe
+evacuation. One general plus one premium memory worker costs $162/month workers;
+removal is not justified by aggregate capacity alone.
+
 ## Application changes
 
 | Workload | Live before batch | Desired after batch | CPU reservation freed |
