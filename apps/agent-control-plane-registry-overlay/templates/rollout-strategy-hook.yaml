@@ -42,6 +42,7 @@ spec:
               namespace="agent-control-plane"
               api_timeout_seconds="${API_TIMEOUT_SECONDS:-20}"
               rolling_deployments="agent-control-plane agent-control-plane-callback-adapter agent-control-plane-git-deliverer agent-control-plane-local-worker"
+              optional_callback_deployment="agent-control-plane-callback-adapter"
               gateway_deployment="agent-control-plane-model-gateway"
               strategy_patch='{"spec":{"strategy":{"type":"RollingUpdate","rollingUpdate":{"maxSurge":0,"maxUnavailable":1}}}}'
 
@@ -69,7 +70,24 @@ spec:
               # rollouts at once, ahead of the ordered PostSync choreography.
               # The hard affinity remains the CES-352 invariant; the gateway
               # must keep Recreate while it shares the RWO auth PVC.
+              validated_rolling_deployments=""
+              validated_rolling_count=0
               for deployment in $rolling_deployments; do
+                if ! deployment_name="$(
+                  kubectl_bounded "$deployment" presence \
+                    -n "$namespace" get "deployment/$deployment" \
+                    --ignore-not-found -o name
+                )"; then
+                  exit 1
+                fi
+                if [ -z "$deployment_name" ]; then
+                  if [ "$deployment" = "$optional_callback_deployment" ]; then
+                    log "deployment=$deployment phase=presence result=skipped reason=optional-deployment-absent"
+                    continue
+                  fi
+                  log "deployment=$deployment phase=presence result=failed reason=deployment-not-found" >&2
+                  exit 1
+                fi
                 if ! rollout_state="$(
                   kubectl_bounded "$deployment" inspect \
                     -n "$namespace" get "deployment/$deployment" \
@@ -98,8 +116,21 @@ spec:
                   log "deployment=$deployment phase=inspect result=failed reason=deployment-not-settled state=$rollout_state expected=<generation>|<same-generation>|1|1|1|1|1" >&2
                   exit 1
                 fi
+                validated_rolling_deployments="${validated_rolling_deployments}${validated_rolling_deployments:+ }$deployment"
+                validated_rolling_count="$((validated_rolling_count + 1))"
               done
 
+              if ! gateway_name="$(
+                kubectl_bounded "$gateway_deployment" presence \
+                  -n "$namespace" get "deployment/$gateway_deployment" \
+                  --ignore-not-found -o name
+              )"; then
+                exit 1
+              fi
+              if [ -z "$gateway_name" ]; then
+                log "deployment=$gateway_deployment phase=presence result=failed reason=deployment-not-found" >&2
+                exit 1
+              fi
               if ! gateway_state="$(
                 kubectl_bounded "$gateway_deployment" inspect \
                   -n "$namespace" get "deployment/$gateway_deployment" \
@@ -135,7 +166,7 @@ spec:
               # pod releases its requested capacity before the replacement is
               # scheduled. This avoids an unbounded 1/0 rollout deadlock on the
               # affinity-constrained, request-saturated node.
-              for deployment in $rolling_deployments; do
+              for deployment in $validated_rolling_deployments; do
                 log "deployment=$deployment phase=patch result=started"
                 if ! kubectl_bounded "$deployment" patch \
                   -n "$namespace" patch "deployment/$deployment" \
@@ -156,7 +187,7 @@ spec:
                 log "deployment=$deployment phase=verify result=succeeded strategy=$strategy_state"
               done
 
-              log "phase=complete result=succeeded rolling_deployments=4 gateway_strategy=Recreate"
+              log "phase=complete result=succeeded rolling_deployments=$validated_rolling_count gateway_strategy=Recreate"
           securityContext:
             runAsNonRoot: true
             runAsUser: 65534
