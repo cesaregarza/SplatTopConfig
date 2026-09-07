@@ -21,12 +21,18 @@ environment projected only into the inspection process. It found zero pending
 migrations, zero recurring rows or violations and billing queue depth zero.
 This proves the source preflight, not controller rollout or live idle behavior.
 
-The worker requests 75m CPU and 192Mi memory including its metrics sidecar.
+The worker requests 75m CPU and 256Mi memory including its metrics sidecar.
 Each preflight/tick/health Job requests 50m CPU and 128Mi. Recheck scheduling
 headroom immediately before activation; pending unrelated workloads must not be
 displaced or resized as part of this change. After the complete Application
 sync, retain the hook result, worker readiness, idle tick/health results and
 metrics evidence before closing CES-850. CES-715 still owns customer rollout.
+
+The metrics sidecar runs Django and needs headroom beyond its resident process:
+it requests 128Mi memory with a 256Mi limit. Collect its metrics through
+Prometheus or from the billing-worker container. Run additional Django
+management commands in the worker or bounded Jobs so diagnostic processes do
+not compete with the metrics server inside the sidecar's memory limit.
 
 ## Enabled-safe render contract
 

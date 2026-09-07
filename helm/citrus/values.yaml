@@ -235,10 +235,10 @@ billingWorker:
     resources:
       requests:
         cpu: 25m
-        memory: 64Mi
+        memory: 128Mi
       limits:
         cpu: 100m
-        memory: 128Mi
+        memory: 256Mi
 
 # The CronJobs read persisted UTC due timestamps. Their schedules are only
 # bounded wake-ups; no Thursday/Friday business policy belongs here.
