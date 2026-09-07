@@ -27,6 +27,7 @@ class SizingTarget:
     memory_request: str
     cpu_limit: str
     memory_limit: str
+    replicas: int = 1
 
 
 TARGETS = (
@@ -77,6 +78,7 @@ TARGETS = (
         memory_request="128Mi",
         cpu_limit="500m",
         memory_limit="512Mi",
+        replicas=0,
     ),
     SizingTarget(
         application="spotify-hot-100",
@@ -167,11 +169,11 @@ def _mcores(value: str) -> int:
 
 
 class ManualSyncCpuRightsizingTests(unittest.TestCase):
-    def test_rendered_requests_match_the_reviewed_first_slice(self) -> None:
+    def test_rendered_requests_and_current_replicas_match(self) -> None:
         for target in TARGETS:
             with self.subTest(application=target.application):
                 deployment = _deployment(_render(target), target.deployment)
-                self.assertEqual(deployment["spec"]["replicas"], 1)
+                self.assertEqual(deployment["spec"]["replicas"], target.replicas)
                 resources = _container(deployment, target.container)["resources"]
                 self.assertEqual(
                     resources,
@@ -199,7 +201,7 @@ class ManualSyncCpuRightsizingTests(unittest.TestCase):
                 sync_policy = application["spec"].get("syncPolicy", {})
                 self.assertIsNone(sync_policy.get("automated"))
 
-    def test_replica_weighted_cpu_reduction_is_exactly_140m(self) -> None:
+    def test_historical_per_replica_cpu_reduction_is_exactly_140m(self) -> None:
         reduction = sum(
             target.baseline_cpu_mcores - _mcores(target.cpu_request)
             for target in TARGETS
@@ -230,6 +232,10 @@ class ManualSyncCpuRightsizingTests(unittest.TestCase):
         )
         skyquiet_worker = _container(
             _deployment(_render(skyquiet), "skyquiet-server-worker"), "worker"
+        )
+        self.assertEqual(
+            _deployment(_render(skyquiet), "skyquiet-server-worker")["spec"]["replicas"],
+            0,
         )
         self.assertEqual(
             skyquiet_worker["resources"]["requests"],
