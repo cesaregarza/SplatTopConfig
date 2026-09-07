@@ -1,6 +1,6 @@
 # CPU reservation correction, September 7, 2026
 
-The memory node had 1,772m of 1,900m CPU reserved after the node replacement, while SplatTop FastAPI and Celery reserved zero CPU. This change reduces oversized monitoring requests and adds baseline reservations for the applications. FastAPI, Alertmanager, and external-dns prefer the general-purpose pool, with fallback to other eligible nodes.
+The memory node had 1,772m of 1,900m CPU reserved after the node replacement, while SplatTop FastAPI and Celery reserved zero CPU. This change reduces oversized monitoring requests and adds baseline reservations for the applications. FastAPI prefers the general-purpose pool with fallback to other eligible nodes. Alertmanager and external-dns require that pool to reserve room on the memory node for Celery's rolling updates.
 
 | Workload | Previous request | New request | Historical CPU p99 |
 | --- | ---: | ---: | ---: |
@@ -18,7 +18,9 @@ Requests reserve a scheduling baseline and affect CPU shares under contention. E
 
 The historical evidence is the offline August 12–26 analysis documented in [CES-849](ces-849-all-app-rightsizing-2026-08-26.md), archive SHA256 `bea90c70a49f24a91174628b5058e9f5107f56ab35beddb2ccaf5b087b774404`. Its CPU series are the maximum across active pods at each timestamp; they are not independent per-pod percentile distributions. Each workload above has fourteen days of CPU coverage. A separate guarded live recording from September 7, 04:10–04:30 UTC contained five points between 728m and 857m cluster CPU use. That short window is a current cross-check, not a peak-load guarantee. No broad live historical Prometheus queries were used.
 
-Steady-state requests change from 3,094m to 3,259m of 3,800m allocatable: reclaim 300m, add 465m of previously missing reservations. The intended placement is approximately 1,722m on the memory node and 1,537m on the general node. Soft preferences, jobs, and rolling surge can change those per-node totals. Neither node capacity nor spending changes.
+Steady-state requests change from 3,094m to 3,259m of 3,800m allocatable: reclaim 300m, add 465m of previously missing reservations. The intended placement is approximately 1,727m on the memory node and 1,532m on the general node. Jobs and rolling surge can change those per-node totals. Neither node capacity nor spending changes.
+
+During the initial rollout, the scheduler kept Alertmanager and external-dns on the memory node despite weight-100 soft preferences. Requiring the general pool for these two 25m services moves 50m of reservations away from the worker. The general pool has one node: losing it temporarily makes these services unschedulable until that pool returns. This explicit placement tradeoff keeps a 150m Celery surge pod schedulable in steady state. Reserve the pinned Celery worker first, then roll the flexible FastAPI/React deployments so they cannot take its CPU slot during the transition.
 
 ## Deployment and verification
 

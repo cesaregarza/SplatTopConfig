@@ -57,8 +57,7 @@ class MemoryPoolPlacementTests(unittest.TestCase):
                 self.assertNotIn("nodeSelector", self.target(chart, False, suffix)["spec"]["template"]["spec"])
 
     def test_general_pool_preferences_allow_fallback(self) -> None:
-        for chart, suffix in (("splattop", "fastapi"),
-                              ("garz-observability", "alertmanager")):
+        for chart, suffix in (("splattop", "fastapi"),):
             with self.subTest(chart=chart):
                 pod = self.target(chart, True, suffix)["spec"]["template"]["spec"]
                 self.assertNotIn("nodeSelector", pod)
@@ -71,6 +70,15 @@ class MemoryPoolPlacementTests(unittest.TestCase):
                         "operator": "In", "values": ["pool-garz-ai"],
                     }]},
                 }])
+
+    def test_small_monitoring_service_reserves_worker_surge_headroom(self) -> None:
+        pod = self.target("garz-observability", True, "alertmanager")["spec"]["template"]["spec"]
+        self.assertEqual(pod["affinity"]["nodeAffinity"], {
+            "requiredDuringSchedulingIgnoredDuringExecution": {"nodeSelectorTerms": [{
+                "matchExpressions": [{"key": "doks.digitalocean.com/node-pool",
+                                      "operator": "In", "values": ["pool-garz-ai"]}],
+            }]},
+        })
 
     def test_worker_grace_changes_without_concurrency_or_command_changes(self) -> None:
         base = self.target("splattop", False, "celery-worker")["spec"]["template"]["spec"]
