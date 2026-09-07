@@ -123,6 +123,18 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: {{ $nsName }}
         {{- end }}
+    {{- if .prometheus.citrusDevMetrics }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: citrus-dev
+          podSelector:
+            matchLabels:
+              app: citrus-billing-worker
+      ports:
+        - protocol: TCP
+          port: 9109
+    {{- end }}
     {{- range .prometheus.extraEgress }}
     - to:
         - ipBlock:

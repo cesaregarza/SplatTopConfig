@@ -34,6 +34,23 @@ Prometheus or from the billing-worker container. Run additional Django
 management commands in the worker or bounded Jobs so diagnostic processes do
 not compete with the metrics server inside the sidecar's memory limit.
 
+## Monitoring acceptance
+
+The monitoring production overlay enables
+`monitoring.networkPolicies.prometheus.citrusDevMetrics`. Its egress rule pairs
+the `citrus-dev` namespace with the `app: citrus-billing-worker` Pod selector and
+TCP port 9109. The pod-scrape configuration must retain the `namespace` and `pod`
+labels consumed by recurring-runtime alerts. A working local endpoint alone
+does not prove that Prometheus can collect and identify it.
+
+Before accepting the runtime, verify `up` and
+`citrus_recurring_runtime_health` for the current worker with both labels.
+Apply only the reviewed policy change and missing pod-label relabel entries
+when the monitoring Application has unrelated pending work. Preserve its
+other scrape jobs, alert rules, receivers and workload settings, and validate
+configuration before a bounded Prometheus reload. Record the local rollback
+patches and evidence without including receiver credentials.
+
 ## Enabled-safe render contract
 
 Requesting any one recurring component requires the complete topology:
