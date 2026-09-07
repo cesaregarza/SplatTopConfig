@@ -48,7 +48,7 @@ data:
         metrics_path: /metrics
         static_configs:
           - targets:
-              - grafana.monitoring.svc.cluster.local:3000
+              - grafana.monitoring.svc.cluster.local:80
 
       - job_name: alertmanager
         metrics_path: /metrics

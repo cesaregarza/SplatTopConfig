@@ -1,6 +1,13 @@
 image:
   tag: 8b0f675d46c8dc66e30fc9a90ae401605bb4ff0f # allow-latest
 
+# One development web pod retains the existing per-pod CPU budget. Production
+# keeps two replicas; billing and media workers have independent replica counts.
+replicaCount: 1
+resources:
+  requests:
+    cpu: 100m
+
 # Production promotion is operator-attested. It must not gate dev image rolls.
 stripeSmokePromotion:
   enabled: false

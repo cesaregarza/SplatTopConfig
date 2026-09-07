@@ -67,7 +67,9 @@ class CitrusGunicornCapacityTests(unittest.TestCase):
     def test_prod_and_dev_render_the_bounded_gthread_policy(self) -> None:
         for environment, deployment in self.deployments.items():
             with self.subTest(environment=environment):
-                self.assertEqual(deployment["spec"]["replicas"], 2)
+                self.assertEqual(
+                    deployment["spec"]["replicas"], 1 if environment == "dev" else 2
+                )
                 container = deployment["spec"]["template"]["spec"]["containers"][0]
                 self.assertEqual(container["command"], ["sh", "-c"])
                 self.assertEqual(container["args"], [EXPECTED_COMMAND])
