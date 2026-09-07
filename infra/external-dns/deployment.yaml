@@ -21,10 +21,9 @@ spec:
       serviceAccountName: external-dns
       affinity:
         nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            preference:
-              matchExpressions:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
               - key: doks.digitalocean.com/node-pool
                 operator: In
                 values:
